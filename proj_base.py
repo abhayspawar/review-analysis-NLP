@@ -20,7 +20,12 @@ def addFileToData(filename, data):
     with open(filename, 'r') as content_file:
         content = content_file.read()
         
-    reviews = content.split("\n\n")
+        #print(repr(content))
+    if content.count("\r") > 0:
+        reviews = content.split("\r\n\r\n")
+    else:
+        reviews = content.split("\n\n")
+    
     for r in reviews:
         thisReview = pd.Series([None]*len(cats), cats)
         splt = r.split("\n")
@@ -44,7 +49,7 @@ def addFileToData(filename, data):
     return data
 
 def getStandardData(numFiles = 10):
-    files = listdir('Review_Texts/')
+    files = sorted(listdir('Review_Texts/'))
     df = getBlankFrame()
 
     for file in files[:numFiles]:
