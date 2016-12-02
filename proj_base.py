@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+from os import listdir
+
 
 
 cats = ['Rooms', 'Date', 'Location', 'Service', 'Business service', 'Author', 'Check in / front desk', 'No. Helpful', 'Cleanliness', 'Content', 'Value', 'No. Reader', 'Overall']
@@ -40,4 +42,13 @@ def addFileToData(filename, data):
             #only add if theres content and its long enough
             data = data.append(thisReview, ignore_index=True)
     return data
+
+def getStandardData(numFiles = 10):
+    files = listdir('Review_Texts/')
+    df = getBlankFrame()
+
+    for file in files[:numFiles]:
+        df = addFileToData('Review_Texts/'+file, df)
+
+    return df
       
