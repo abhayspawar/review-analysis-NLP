@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from os import listdir
-
+from unidecode import unidecode
 
 
 cats = ['Rooms', 'Date', 'Location', 'Service', 'Business service', 'Author', 'Check in / front desk', 'No. Helpful', 'Cleanliness', 'Content', 'Value', 'No. Reader', 'Overall']
@@ -39,7 +39,7 @@ def addFileToData(filename, data):
                         value = np.nan
 
                     if c == "Content":
-                        value = value.lower()
+                        value = remove_non_ascii(value.lower())
 
                     thisReview[c] = value
                     
@@ -57,3 +57,6 @@ def getStandardData(numFiles = 10):
 
     return df
       
+
+def remove_non_ascii(text):
+    return unidecode(unicode(text, encoding="utf-8"))
