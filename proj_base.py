@@ -194,5 +194,14 @@ def bigram_creation(corpus):
     tfidf_X2 = transformer.fit_transform(X_2)
     return tfidf_X2.toarray()
 
+def clean_string(review):
+    sentence=review.lower()
+    remove_list=stopwords.words("english")
+    word_list=sentence.split()
+    sentence=' '.join([i for i in word_list if i not in remove_list])
+    translation=string.maketrans("","")
+    clean_review = sentence.translate(translation,string.punctuation)
+    return clean_review
+
 
 
