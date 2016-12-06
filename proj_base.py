@@ -86,62 +86,40 @@ def remove_non_ascii(text):
 
 
 # alternate method to get keywords. LARA method based on Chi-square is basically same, but much better
-def aspectSegmentationBayes(reviews, freq_threshold = .5, prob_threshold = 0.2, words_per_iter = 4, iters = 5):
+def aspectSegmentationBayes(data, freq_threshold = 10, prob_threshold = 0.5, words_per_iter = 5, iters = 3):
     #break down reviews into sentences and break down each sentence into words using tokenizer and remove stopwords
     # returns list where each item is the list of words in that sentence
-    sentence_words = []
-    for review in reviews:
-        review = review.decode('utf-8')
-        sentences = nltk.tokenize.sent_tokenize(review)
-        for sentence in sentences:
-            sentence_words.append([x.lower() for x in nltk.tokenize.word_tokenize(sentence) if x not in stopwords.words('english') and len(x) > 2])    
-    
+    sent_tokenized_reviews =  data['Content'].apply(lambda x: x.decode('utf-8')).apply(nltk.tokenize.sent_tokenize)
+    sentences = [sentence for review in sent_tokenized_reviews for sentence in review]
+
+    vectorizer =CountVectorizer(min_df = freq_threshold, binary=True,
+                                                        ngram_range=(1,1),token_pattern = r'[a-zA-Z]{3,}',
+                                                        stop_words=stopwords.words('english'))
+    X = vectorizer.fit_transform(sentences)
+    X = X.toarray() #convert sparse array to array
+
+    count_sents_with_word = np.sum(X,axis=0) # works because binary
 
     # find Probability(sentence(S) has aspect(A) GIVEN S has word(W)) = count(S that have A and have W) / count(S that have W)
 
     for i in range(iters):
-        
-        sents_with_word_asp = {}
-        sents_with_word = {}
-        sents_with_aspect = {}
-        prob_asp_given_word = {}
+        for aspect in seeds:
 
-        # calculates counts of (S that have W) and (S that have A and W)
-        for sentence in sentence_words:
-            for word in sentence:
-                sents_with_word[word] = sents_with_word.get(word,0) + 1
-                for aspect, aspect_words in seeds.items():
-                    for aspect_word in aspect_words:
-                        if aspect_word in sentence:
-                            sents_with_word_asp[(word,aspect)] = sents_with_word_asp.get((word, aspect), 0) + 1
-                            sents_with_aspect[aspect] = sents_with_aspect.get(aspect,0) + 1
-                            break
+            # if condition ensures code runs even if seed word not in our corpus by some chance
+            seed_indices = [vectorizer.vocabulary_[word] for word in seeds[aspect] if vectorizer.vocabulary_.get(word) != None]
+            count_sents_with_asp = np.sum(np.logical_or.reduce(X[:,seed_indices].T))
+            count_sents_with_word_asp = np.sum(X[np.logical_or.reduce(X[:,seed_indices].T),:],axis=0)
 
-        for (word, aspect), count in sents_with_word_asp.items():
-            #susceptible to low frequencies. hence freq_threshold
-            #freq_threshold ensures that count(S with  W) is atleast x% of count(S)
-            if sents_with_word[word] > (freq_threshold/100.0)*len(sentence_words):
-                prob_asp_given_word[(word,aspect)] = count/float(sents_with_word[word])
-
-        prob_asp_given_word_sorted = sorted(prob_asp_given_word.items(), key=itemgetter(1),reverse=True)
-        
-        for aspect, word_list in seeds.items():
+            prob_asp_given_word = count_sents_with_word_asp.astype(float)/count_sents_with_word
+            sorted_indices = np.argsort(prob_asp_given_word)[::-1]
             count = 0
-            for item in prob_asp_given_word_sorted:
-                #item is of the form ((word,aspect),probability)
-                if item[0][1] == aspect:
-                    if item[0][0] not in word_list:
-                        if count <= words_per_iter:
-                            if item[1] >= prob_threshold:
-                                seeds[aspect].append(item[0][0])
-                                count += 1
-                            else:
-                                #because sorted, the others can't have higher probability
-                                break
-                        else:
-                            # because limiit of words per aspect in this iteration has been reached
-                            break
-
+            for j in sorted_indices:
+                if count > words_per_iter or prob_asp_given_word[j] < prob_threshold:
+                    break
+                else:
+                    if vectorizer.get_feature_names()[j] not in seeds[aspect]:
+                        seeds[aspect].append(vectorizer.get_feature_names()[j])
+                        count += 1
     return seeds
 
 def filterReviewSentencesByWords(rev, words):
@@ -203,5 +181,50 @@ def clean_string(review):
     clean_review = sentence.translate(translation,string.punctuation)
     return clean_review
 
+
+def aspectSegmentationChiSquared(data, vocab=[], threshold=0, iterationLimit=3):
+    #when we have the top chi-squared rated keywords, how many do we take
+    keywordsToTake = 3
+    
+    reviews=data["Content"]
+    #bootstrap iterations
+    
+    sent_tokenized_reviews = [nltk.tokenize.sent_tokenize(r.decode('utf-8')) for r in reviews]
+    sentences = [sentence for r in sent_tokenized_reviews for sentence in r]
+    
+    vectorizer = CountVectorizer(min_df = 0, binary=True,
+                                                        ngram_range=(1,1),token_pattern = r'[a-zA-Z]{3,}',
+                                                        stop_words=stopwords.words('english'))
+    X = vectorizer.fit_transform(sentences)
+    X = X.toarray() #convert sparse array to array
+    
+    for i in range(0, iterationLimit):
+        
+        for aspect in seeds:
+            seed_indices = [vectorizer.vocabulary_[word] for word in seeds[aspect] if vectorizer.vocabulary_.get(word) != None]
+            row_mask = np.logical_or.reduce(X[:,seed_indices].T)
+            sentences_with_aspect = X[row_mask,:]
+            sentences_without_aspect = X[~row_mask,:]
+            c_1 = np.sum(sentences_with_aspect,axis=0)
+            c_2 = np.sum(sentences_without_aspect, axis=0)
+            c_3 = len(sentences_with_aspect) - c_1
+            c_4 = len(sentences_without_aspect) - c_2
+            
+            numer = 1.0*((c_1*c_4 - c_2 * c_3)**2)
+            denom = 1.0*(c_1 + c_3)*(c_2 + c_4)*(c_1 + c_2)*(c_3 + c_4)
+            
+            csq = numer / denom
+            
+            count = 0
+            sorted_indices = np.argsort(csq)[::-1]
+            for x in sorted_indices:
+                word = vectorizer.get_feature_names()[x]
+                if word not in seeds[aspect]:
+                    seeds[aspect].append(word)
+                    count += 1
+                if count == keywordsToTake:
+                    break
+                    
+    return seeds
 
 
