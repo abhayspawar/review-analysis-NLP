@@ -11,6 +11,11 @@ from nltk.util import ngrams
 from sklearn.feature_extraction import DictVectorizer 
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfTransformer
+import itertools
+import matplotlib.pyplot as plt
+from sklearn import svm, datasets
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
 
 
 tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
@@ -158,7 +163,7 @@ def getTrainingData(data):
     return data[(pd.notnull(data[aspect])) & (data["aspectSentences"].apply(len) > 0)][includeColumns]
 
 def unigram_creation(corpus):
-    unigram_vectorizer = CountVectorizer(min_df=1,binary=False)
+    unigram_vectorizer = CountVectorizer(ngram_range=(1,1),min_df=5,binary=False)
     X = unigram_vectorizer.fit_transform(corpus)
     X_1=X.toarray()
     transformer = TfidfTransformer(smooth_idf=False)
@@ -166,7 +171,7 @@ def unigram_creation(corpus):
     return tfidf_X1.toarray()
 
 def bigram_creation(corpus):
-    bigram_vectorizer = CountVectorizer(ngram_range=(1, 2),token_pattern=r'\b\w+\b', min_df=1)
+    bigram_vectorizer = CountVectorizer(ngram_range=(1, 2),token_pattern=r'\b\w+\b', min_df=5)
     X_2 = bigram_vectorizer.fit_transform(corpus).toarray()
     transformer = TfidfTransformer(smooth_idf=False)
     tfidf_X2 = transformer.fit_transform(X_2)
@@ -226,5 +231,39 @@ def aspectSegmentationChiSquared(data, vocab=[], threshold=0, iterationLimit=3):
                     break
                     
     return seeds
+
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    print(cm)
+
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, cm[i, j],
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+
 
 
