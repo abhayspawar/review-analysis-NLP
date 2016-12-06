@@ -6,6 +6,11 @@ import nltk.data
 from nltk.corpus import stopwords
 from operator import itemgetter
 import re
+from nltk import bigrams
+from nltk.util import ngrams
+from sklearn.feature_extraction import DictVectorizer 
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfTransformer
 
 
 tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
@@ -173,4 +178,21 @@ def getTrainingData(data):
     data = getAspectSentencesForReview(data, seeds[aspect])
     data["aspectRating"] = data[aspect]
     return data[(pd.notnull(data[aspect])) & (data["aspectSentences"].apply(len) > 0)][includeColumns]
+
+def unigram_creation(corpus):
+    unigram_vectorizer = CountVectorizer(min_df=1,binary=False)
+    X = unigram_vectorizer.fit_transform(corpus)
+    X_1=X.toarray()
+    transformer = TfidfTransformer(smooth_idf=False)
+    tfidf_X1 = transformer.fit_transform(X_1)
+    return tfidf_X1.toarray()
+
+def bigram_creation(corpus):
+    bigram_vectorizer = CountVectorizer(ngram_range=(1, 2),token_pattern=r'\b\w+\b', min_df=1)
+    X_2 = bigram_vectorizer.fit_transform(corpus).toarray()
+    transformer = TfidfTransformer(smooth_idf=False)
+    tfidf_X2 = transformer.fit_transform(X_2)
+    return tfidf_X2.toarray()
+
+
 
