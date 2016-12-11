@@ -31,7 +31,7 @@ seeds =  {"Value" : ["value", "price", "quality","worth"],
           "Business service" : ["business", "center", "computer", "internet"]
          }
 
-
+segmentationDone = False
 
 def getBlankFrame():
     
@@ -94,6 +94,12 @@ def remove_non_ascii(text):
 def aspectSegmentationBayes(data, freq_threshold = 10, prob_threshold = 0.5, words_per_iter = 5, iters = 3):
     #break down reviews into sentences and break down each sentence into words using tokenizer and remove stopwords
     # returns list where each item is the list of words in that sentence
+    
+    if segmentationDone:
+        return
+    else:
+        segmentationDone = True
+        
     sent_tokenized_reviews =  data['Content'].apply(lambda x: x.decode('utf-8')).apply(nltk.tokenize.sent_tokenize)
     sentences = [sentence for review in sent_tokenized_reviews for sentence in review]
 
