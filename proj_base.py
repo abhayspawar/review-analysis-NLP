@@ -94,7 +94,7 @@ def remove_non_ascii(text):
 def aspectSegmentationBayes(data, freq_threshold = 10, prob_threshold = 0.5, words_per_iter = 5, iters = 3):
     #break down reviews into sentences and break down each sentence into words using tokenizer and remove stopwords
     # returns list where each item is the list of words in that sentence
-    
+    global segmentationDone
     if segmentationDone:
         return
     else:
@@ -167,6 +167,11 @@ def getTrainingData(data):
     data = getAspectSentencesForReview(data, seeds[aspect])
     data["aspectRating"] = data[aspect]
     return data[(pd.notnull(data[aspect])) & (data["aspectSentences"].apply(len) > 0)][includeColumns]
+
+def getAspectSentences(data):
+    data = getAspectSentencesForReview(data, seeds[aspect])
+    data["aspectRating"] = data[aspect]
+    return data
 
 def unigram_creation(corpus):
     unigram_vectorizer = CountVectorizer(ngram_range=(1,1),min_df=5,binary=False)
